@@ -23,7 +23,11 @@ import com.jagrosh.jmusicbot.commands.DJCommand;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -34,7 +38,7 @@ public class CreatePLFromQueue extends DJCommand
     {
         super(bot);
         this.name = "createfromqueue";
-        this.help = "removes all entries by a user from the queue";
+        this.help = "creates a playlist based on the current items in the queue";
         this.aliases = bot.getConfig().getAliases(this.name);
         this.beListening = false;
         this.bePlaying = true;
@@ -46,21 +50,32 @@ public class CreatePLFromQueue extends DJCommand
             event.replyError("You need to specify a playlist name!");
             return;
         }
+        Integer skipped = 0;
+        HashSet<String> currentEntries = null;
         AudioHandler handler = (AudioHandler) event.getGuild().getAudioManager().getSendingHandler();
         List<String> uris = new java.util.ArrayList<>(Collections.singletonList(handler.getPlayer().getPlayingTrack().getInfo().uri));
         uris.addAll(handler.getQueue().getList().stream().map(queuedTrack -> queuedTrack.getTrack().getInfo().uri).collect(Collectors.toList()));
-        File directory = new File("Playlists");
-        if (! directory.exists()){
-            if (!directory.mkdir())
+        Path outFilePath = Paths.get(bot.getConfig().getPlaylistsFolder(), event.getArgs());
+        if(!bot.getPlaylistLoader().folderExists())
+            bot.getPlaylistLoader().createFolder();
+        if(!bot.getPlaylistLoader().folderExists())
+        {
+            event.replyWarning("Playlists folder does not exist around could not be created!");
+            return;
+        }
+
+        else if (Files.exists(outFilePath))
+        {
+            try
             {
-                event.replyError("Failed to create Playlists directory");
+                currentEntries = new HashSet<String>(Files.readAllLines(outFilePath));
             }
+            catch (IOException ignore) {}
         }
         FileWriter writer = null;
-        boolean writeError = false;
         try
         {
-            writer = new FileWriter("./Playlists/" + event.getArgs() + ".txt");
+            writer = new FileWriter(outFilePath.toString(), true);
         }
         catch (IOException e)
         {
@@ -71,7 +86,8 @@ public class CreatePLFromQueue extends DJCommand
         {
             for(String str: uris)
             {
-                writer.write(str + System.lineSeparator());
+                if (currentEntries != null && currentEntries.contains(str)) {skipped++;}
+                else{writer.write(str + System.lineSeparator());}
             }
         } catch (IOException g) {
             writeError = true;
@@ -88,7 +104,7 @@ public class CreatePLFromQueue extends DJCommand
         }
         if (!writeError)
         {
-            event.replySuccess("Added " + uris.size() + " songs to playlist " + event.getArgs());
+            event.replySuccess("Added " + uris.size() + " songs to playlist \"" + event.getArgs() + "\" (skipped " + skipped + " duplicates");
         }
     }
 }
