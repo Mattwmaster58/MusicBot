@@ -38,7 +38,7 @@ public class CreatePLFromQueue extends DJCommand
     public CreatePLFromQueue(Bot bot)
     {
         super(bot);
-        this.name = "createfromqueue";
+        this.name = "playlistfromqueue";
         this.help = "creates a playlist based on the current items in the queue";
         this.aliases = bot.getConfig().getAliases(this.name);
         this.beListening = false;
